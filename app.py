@@ -23,8 +23,8 @@ def index():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.json
-    disease = data.get('disease', 'Lung Cancer')
-    exposure = data.get('exposure', 'Smoking')
+    disease = data.get('disease', 'Breast Cancer')
+    exposure = data.get('exposure', 'Coffee')
     
     result = meta_analysis.get_analysis_data(disease, exposure)
     return jsonify(result)

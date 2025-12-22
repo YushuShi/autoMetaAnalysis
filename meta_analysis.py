@@ -44,9 +44,50 @@ def get_analysis_data(disease, exposure):
     df_clean['log_SE'] = df_clean.apply(calc_log_se, axis=1)
     df_clean['var'] = df_clean['log_SE'] ** 2
     
+    # Set index to Study for better summary labels
+    # We create a copy or modify appropriate used dataframe
+    # statsmodels uses the index of the input series
+    
+    # Use 'Study' column as index
+    # Resolve duplicates if any (unlikely with "et al" but possible)
+    # We'll just append simple counter if needed, or assume uniqueness for now
+    analysis_df = df_clean.set_index('Study')
+    
     try:
-        res = combine_effects(df_clean['log_ES'], df_clean['var'], method_re='dl')
+        res = combine_effects(analysis_df['log_ES'], analysis_df['var'], method_re='dl')
         summary_df = res.summary_frame()
+        
+        # Explicitly update the index of the study rows to match our Study names
+        # The summary frame has N rows (studies) + summary rows
+        n_studies = len(analysis_df)
+        
+        # Create a new index list: Study names + existing summary labels (e.g. fixed effect, random effect)
+        new_index = list(analysis_df.index) + list(summary_df.index[n_studies:])
+        summary_df.index = new_index
+        
+        # Cleanup table columns as per user request
+        # Drop w_fe, w_re
+        cols_to_drop = ['w_fe', 'w_re']
+        # Use errors='ignore' in case they don't exist in some versions
+        summary_df = summary_df.drop(columns=cols_to_drop, errors='ignore')
+        
+        # Rename columns
+        summary_df = summary_df.rename(columns={
+            'eff': 'Effect',
+            'sd_eff': 'SD Effect',
+            'ci_low': '95% CI lower',
+            'ci_upp': '95% CI upper'
+        })
+        
+        # Rename rows as requested
+        summary_df = summary_df.rename(index={
+            'random effect wls': 'Random-effects meta-analysis (WLS)',
+            'fixed effect wls': 'Fixed-effect meta-analysis (WLS)'
+        })
+
+        # Round to 4 decimal places as requested
+        summary_df = summary_df.round(4)
+        
         summary = summary_df.to_html(classes='table table-striped', header=True)
         
         # Extract keys for headline
@@ -56,16 +97,20 @@ def get_analysis_data(disease, exposure):
         
         try:
              # Handle potential row naming variations
-             if 'random effect' in summary_df.index:
-                 re_row = summary_df.loc['random effect']
+             if 'Random-effects meta-analysis (WLS)' in summary_df.index:
+                 re_row = summary_df.loc['Random-effects meta-analysis (WLS)']
              elif 'random effect wls' in summary_df.index:
                  re_row = summary_df.loc['random effect wls']
+             elif 'random effect' in summary_df.index:
+                 re_row = summary_df.loc['random effect']
              else:
-                 re_row = summary_df.iloc[-1] # Fallback to last row
+                 # It might be the last row
+                 re_row = summary_df.iloc[-1]
              
-             log_eff = re_row['eff']
-             log_ci_low = re_row['ci_low']
-             log_ci_upp = re_row['ci_upp']
+             # Updated keys after renaming
+             log_eff = re_row['Effect']
+             log_ci_low = re_row['95% CI lower']
+             log_ci_upp = re_row['95% CI upper']
              
              # Convert back to linear scale for display (assuming OR/RR)
              pooled_es = np.exp(log_eff)
@@ -84,9 +129,9 @@ def get_analysis_data(disease, exposure):
                  interpretation += f" ({direction})"
              
              headline = {
-                 "pooled_es": round(pooled_es, 2),
-                 "ci_low": round(pooled_lower, 2),
-                 "ci_upp": round(pooled_upper, 2),
+                 "pooled_es": float(round(pooled_es, 2)),
+                 "ci_low": float(round(pooled_lower, 2)),
+                 "ci_upp": float(round(pooled_upper, 2)),
                  "interpretation": interpretation
              }
 
@@ -121,7 +166,7 @@ def get_analysis_data(disease, exposure):
         plt.close() # Close plot to free memory
         
         # Convert df to records for frontend
-        studies_data = df_clean[['Study', 'Effect Size', 'Lower CI', 'Upper CI', 'Population', 'Reference', 'Authors']].to_dict(orient='records')
+        studies_data = df_clean[['Study', 'Effect Size', 'Lower CI', 'Upper CI', 'Population', 'Reference', 'Authors', 'Journal', 'Year', 'Link']].to_dict(orient='records')
         
         return {
             "success": True,
@@ -280,21 +325,47 @@ def extract_data(articles):
                     if len(data) < 5:
                        print(f"DEBUG: Found ES {effect_size} in '{title[:20]}...' but NO CI in snippet: '{snippet}'")
 
+            # Journal and Year
+            journal_info = article_data.get('Journal', {})
+            journal_title = journal_info.get('Title', 'Unknown Journal')
+            # Year can be tricky in Medline (sometimes in MedlineDate)
+            pub_date = journal_info.get('JournalIssue', {}).get('PubDate', {})
+            year = pub_date.get('Year', '')
+            if not year:
+                # Try MedlineDate
+                medline_date = pub_date.get('MedlineDate', '')
+                year_match = re.search(r'\d{4}', medline_date)
+                if year_match:
+                    year = year_match.group(0)
+                else:
+                    year = "Unknown"
+
             if effect_size:
                 # Basic validation:
                 if lower_ci and upper_ci:
                     if lower_ci > upper_ci:
                         lower_ci, upper_ci = upper_ci, lower_ci
                 
+                # Format Study with Year
+                short_author = f"{authors.split(',')[0]} et al." if ',' in authors else authors
+                study_label = f"{short_author} ({year})"
+                
+                # Construct PubMed Link
+                pmid = medline.get('PMID', '')
+                pmid_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "#"
+                
                 row = {
-                    "Study": f"{authors.split(',')[0]} et al." if ',' in authors else authors,
+                    "Study": study_label,
                     "Effect Size": effect_size,
                     "Effect Type": es_type,
                     "Lower CI": lower_ci,
                     "Upper CI": upper_ci,
                     "Population": "General",
                     "Authors": authors,
-                    "Reference": title
+                    "Reference": title,
+                    "Journal": journal_title,
+                    "Year": year,
+                    "Link": pmid_link
                 }
                 
                 # Attempt Population extraction
@@ -325,8 +396,8 @@ def calculate_se(row):
 
 def main():
     print("--- Meta-Analysis Tool ---")
-    disease = input("Enter Disease (e.g., 'Lung Cancer'): ") or "Lung Cancer"
-    exposure = input("Enter Exposure (e.g., 'Smoking'): ") or "Smoking"
+    disease = input("Enter Disease (e.g., 'Breast Cancer'): ") or "Breast Cancer"
+    exposure = input("Enter Exposure (e.g., 'Coffee'): ") or "Coffee"
     
     print(f"\nFetching data for {disease} and {exposure}...")
     ids = search_pubmed(disease, exposure)

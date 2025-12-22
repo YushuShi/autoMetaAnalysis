@@ -36,6 +36,19 @@ document.getElementById('analyze-btn').addEventListener('click', async () => {
             // Update Summary
             document.getElementById('summary-stats').innerHTML = data.summary_html;
 
+            // Highlight 'random effect wls' row - UPDATED to look for 'Random-effects meta-analysis (WLS)'
+            const summaryTable = document.querySelector('#summary-stats table');
+            if (summaryTable) {
+                const rows = summaryTable.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const firstCell = row.cells[0];
+                    // Case insensitive check for the new label
+                    if (firstCell && firstCell.textContent.trim().toLowerCase().includes('random-effects meta-analysis (wls)')) {
+                        row.classList.add('highlight-row');
+                    }
+                });
+            }
+
             // Update Headline
             if (data.headline) {
                 const hl = document.getElementById('headline-result');
@@ -60,14 +73,17 @@ document.getElementById('analyze-btn').addEventListener('click', async () => {
             const tbody = document.querySelector('#studies-table tbody');
             tbody.innerHTML = '';
 
-            data.studies.forEach(study => {
+            data.studies.forEach((study, index) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td>${index + 1}</td>
                     <td>${study.Study}</td>
                     <td>${study['Effect Size']}</td>
                     <td>${study['Lower CI']} - ${study['Upper CI']}</td>
                     <td>${study.Population}</td>
                     <td style="font-size: 0.85em; opacity: 0.8;">${study.Reference}</td>
+                    <td>${study.Journal || '-'} (${study.Year || '-'})</td>
+                    <td><a href="${study.Link}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">Link</a></td>
                 `;
                 tbody.appendChild(tr);
             });

@@ -18,12 +18,12 @@
 
     <main>
         <section class="hero">
-            <h1>Synthesize Evidence vs. Exposure</h1>
+            <h1>Synthesize Evidence on Disease-Exposure Relations</h1>
             <p>Enter a disease and an exposure to automatically perform a meta-analysis from PubMed data.</p>
 
             <div class="search-box">
-                <input type="text" id="disease" placeholder="Disease (e.g. Lung Cancer)" value="Lung Cancer">
-                <input type="text" id="exposure" placeholder="Exposure (e.g. Smoking)" value="Smoking">
+                <input type="text" id="disease" placeholder="Disease (e.g. Breast Cancer)" value="Breast Cancer">
+                <input type="text" id="exposure" placeholder="Exposure (e.g. Coffee)" value="Coffee">
                 <button id="analyze-btn">Analyze Evidence</button>
             </div>
         </section>
@@ -52,11 +52,14 @@
                     <table id="studies-table">
                         <thead>
                             <tr>
+                                <th>#</th>
                                 <th>Study</th>
                                 <th>Effect Size</th>
                                 <th>95% CI</th>
                                 <th>Population</th>
                                 <th>Reference</th>
+                                <th>Journal / Year</th>
+                                <th>Link</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -70,11 +73,11 @@
                 <h2>Meta-Analysis Result</h2>
 
                 <div id="headline-result" class="hidden"
-                    style="margin-bottom: 2rem; padding: 1.5rem; border-radius: 8px; background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.4);">
-                    <h3 style="margin-bottom: 0.5rem; color: #58a6ff;">Pooled Effect Size</h3>
-                    <div style="font-size: 2.5rem; font-weight: 800; color: #fff;">
+                    style="margin-bottom: 2rem; padding: 1.5rem; border-radius: 8px; background: rgba(160, 82, 45, 0.1); border: 1px solid rgba(160, 82, 45, 0.4);">
+                    <h3 style="margin-bottom: 0.5rem; color: #A0522D;">Pooled Effect Size</h3>
+                    <div style="font-size: 2.5rem; font-weight: 800; color: #333;">
                         <span id="pooled-es"></span> <span
-                            style="font-size: 1.2rem; font-weight: 400; opacity: 0.8;">(95% CI: <span
+                            style="font-size: 1.2rem; font-weight: 400; opacity: 0.8; color: #555;">(95% CI: <span
                                 id="pooled-ci"></span>)</span>
                     </div>
                     <div id="interpretation"
@@ -82,6 +85,7 @@
                     </div>
                 </div>
 
+                <h3>Statistical Details</h3>
                 <div id="summary-stats">
                     <!-- Injected HTML -->
                 </div>

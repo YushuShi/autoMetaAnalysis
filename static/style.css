@@ -1,12 +1,15 @@
 :root {
-    --bg-color: #0d1117;
-    --card-bg: #161b22;
-    --text-main: #c9d1d9;
-    --text-bright: #ffffff;
-    --primary: #238636;
-    --primary-hover: #2ea043;
-    --accent: #58a6ff;
-    --border: #30363d;
+    --bg-color: #FDF6E3;
+    /* Solarized Light extraction */
+    --card-bg: #FEFEFA;
+    /* Slightly lighter than bg */
+    --text-main: #333333;
+    --text-bright: #000000;
+    --primary: #B8AD4A;
+    --primary-hover: #A49A42;
+    --accent: #A0522D;
+    /* Sienna (Brown tint) */
+    --border: #d0d7de;
     --font-family: 'Inter', sans-serif;
 }
 
@@ -27,7 +30,8 @@ body {
 header {
     text-align: center;
     padding: 3rem 1rem;
-    background: linear-gradient(180deg, #1f2428 0%, var(--bg-color) 100%);
+    background: #fff;
+    border-bottom: 1px solid var(--border);
 }
 
 .logo {
@@ -53,9 +57,6 @@ h1 {
     font-size: 2.5rem;
     color: var(--text-bright);
     margin-bottom: 1rem;
-    background: -webkit-linear-gradient(45deg, #fff, #888);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
 }
 
 .search-box {
@@ -67,11 +68,11 @@ h1 {
 }
 
 input {
-    background: var(--card-bg);
+    background: #fff;
     border: 1px solid var(--border);
     padding: 0.8rem 1.2rem;
     border-radius: 6px;
-    color: var(--text-bright);
+    color: var(--text-main);
     font-size: 1rem;
     width: 250px;
     transition: border-color 0.2s;
@@ -80,6 +81,7 @@ input {
 input:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(160, 82, 45, 0.3);
 }
 
 button {
@@ -104,7 +106,7 @@ button:hover {
     border-radius: 8px;
     padding: 2rem;
     margin-bottom: 2rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .card h2 {
@@ -117,9 +119,10 @@ button:hover {
 
 .plot-container {
     text-align: center;
-    background: white; /* Plots usually have white background */
+    background: white;
     padding: 1rem;
     border-radius: 8px;
+    border: 1px solid var(--border);
 }
 
 img#forest-plot {
@@ -136,17 +139,26 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1rem;
+    color: var(--text-main);
 }
 
-th, td {
+th,
+td {
     text-align: left;
     padding: 1rem;
     border-bottom: 1px solid var(--border);
 }
 
 th {
-    color: var(--accent);
-    font-weight: 600;
+    color: #555;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    background-color: #f6f8fa;
+}
+
+tr:nth-child(even) {
+    background-color: #f8f9fa;
 }
 
 /* Spinner */
@@ -170,16 +182,21 @@ th {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 #error-message {
-    color: #ff7b72;
-    background: rgba(255, 123, 114, 0.1);
+    color: #cf222e;
+    background: #ffebe9;
     padding: 1rem;
     border-radius: 6px;
-    border: 1px solid #ff7b72;
+    border: 1px solid #ff818266;
     text-align: center;
     margin-bottom: 2rem;
 }
@@ -188,13 +205,23 @@ th {
 table.dataframe {
     width: 100%;
     border: none;
-    color: #000; /* If dataframe HTML uses default colors */
+    color: var(--text-main);
 }
+
 /* Force text color in summary stats since statsmodels outputs plain HTML */
 #summary-stats {
     background: #fff;
-    color: #000;
+    color: var(--text-main);
     padding: 1rem;
     border-radius: 6px;
+    border: 1px solid var(--border);
     overflow-x: auto;
+}
+
+/* Highlight specific rows in stats table */
+.highlight-row {
+    background-color: rgba(160, 82, 45, 0.1) !important;
+    /* Brown tint */
+    font-weight: bold;
+    border-left: 4px solid #A0522D;
 }
