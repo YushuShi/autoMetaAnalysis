@@ -1,5 +1,6 @@
 import os
 import re
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from Bio import Entrez
@@ -224,14 +225,6 @@ def main():
     # Save to CSV
     df_clean.to_csv("meta_analysis_results.csv", index=False)
     print("\nData saved to 'meta_analysis_results.csv'")
-
-import numpy as np
-
-# ... (imports)
-
-# ... (inside extract_data - no change needed there)
-
-# ... (inside main)
 
     # Random Effects Meta-Analysis
     print("\nPerforming Random Effects Meta-Analysis...")
