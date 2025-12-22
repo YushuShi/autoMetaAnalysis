@@ -5,8 +5,10 @@
     /* Slightly lighter than bg */
     --text-main: #333333;
     --text-bright: #000000;
-    --primary: #B8AD4A;
-    --primary-hover: #A49A42;
+    --primary: #A0522D;
+    /* Sienna (Brown) */
+    --primary-hover: #8B4513;
+    /* SaddleBrown */
     --accent: #A0522D;
     /* Sienna (Brown tint) */
     --border: #d0d7de;
@@ -150,15 +152,17 @@ td {
 }
 
 th {
-    color: #555;
+    color: #333;
     font-weight: 700;
     text-transform: uppercase;
     font-size: 0.85rem;
-    background-color: #f6f8fa;
+    background-color: rgba(160, 82, 45, 0.15);
+    /* Light brown accent */
 }
 
 tr:nth-child(even) {
-    background-color: #f8f9fa;
+    background-color: rgba(160, 82, 45, 0.05);
+    /* Faint brown tint */
 }
 
 /* Spinner */
