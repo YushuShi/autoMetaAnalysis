@@ -88,7 +88,14 @@ def get_analysis_data(disease, exposure):
         # Round to 4 decimal places as requested
         summary_df = summary_df.round(4)
         
-        summary = summary_df.to_html(classes='table table-striped', header=True)
+        # Create a copy for display that excludes the fixed/random effect rows
+        display_df = summary_df.copy()
+        rows_to_drop = ['Fixed-effect meta-analysis (WLS)', 'Random-effects meta-analysis (WLS)']
+        # Also check for the original names in case renaming didn't happen
+        rows_to_drop.extend(['fixed effect wls', 'random effect wls', 'fixed effect', 'random effect'])
+        display_df = display_df.drop(index=[r for r in rows_to_drop if r in display_df.index], errors='ignore')
+        
+        summary = display_df.to_html(classes='table table-striped', header=True)
         
         # Extract keys for headline
         # Depending on version 'random effect' row might be named differently?
