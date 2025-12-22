@@ -4,3 +4,4 @@ statsmodels
 matplotlib
 forestplot
 python-dotenv
+flask

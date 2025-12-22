@@ -2,12 +2,144 @@ import os
 import re
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg') # Set non-interactive backend for Flask
 import matplotlib.pyplot as plt
 from Bio import Entrez
 from dotenv import load_dotenv
 import statsmodels.api as sm
-from statsmodels.stats.meta_analysis import CombineResults
+from statsmodels.stats.meta_analysis import CombineResults, combine_effects
 import forestplot
+
+# ... (rest of imports)
+
+def get_analysis_data(disease, exposure):
+    """
+    Main entry point for web app. Returns a dict with results.
+    """
+    print(f"Analyzing: {disease} vs {exposure}")
+    ids = search_pubmed(disease, exposure)
+    articles = fetch_details(ids)
+    
+    df = extract_data(articles)
+    
+    if df.empty:
+        return {"error": "No suitable data found extraction effect sizes."}
+
+    df['SE'] = df.apply(calculate_se, axis=1)
+    df_clean = df.dropna(subset=['Effect Size', 'SE'])
+    
+    if df_clean.empty:
+        return {"error": "Effect sizes found but no Confidence Intervals to calculate SE."}
+
+    # Meta-Analysis
+    # Log transformation logic
+    df_clean['log_ES'] = df_clean.apply(lambda x: np.log(x['Effect Size']) if x['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO'] and x['Effect Size'] > 0 else x['Effect Size'], axis=1)
+    
+    def calc_log_se(row):
+        if row['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO'] and row['Lower CI'] > 0 and row['Upper CI'] > 0:
+             return (np.log(row['Upper CI']) - np.log(row['Lower CI'])) / 3.92
+        return row['SE']
+
+    df_clean['log_SE'] = df_clean.apply(calc_log_se, axis=1)
+    df_clean['var'] = df_clean['log_SE'] ** 2
+    
+    try:
+        res = combine_effects(df_clean['log_ES'], df_clean['var'], method_re='dl')
+        summary_df = res.summary_frame()
+        summary = summary_df.to_html(classes='table table-striped', header=True)
+        
+        # Extract keys for headline
+        # Depending on version 'random effect' row might be named differently?
+        # In snippet it was "random effect"
+        # We try to grab the row named 'random effect'
+        
+        try:
+             # Handle potential row naming variations
+             if 'random effect' in summary_df.index:
+                 re_row = summary_df.loc['random effect']
+             elif 'random effect wls' in summary_df.index:
+                 re_row = summary_df.loc['random effect wls']
+             else:
+                 re_row = summary_df.iloc[-1] # Fallback to last row
+             
+             log_eff = re_row['eff']
+             log_ci_low = re_row['ci_low']
+             log_ci_upp = re_row['ci_upp']
+             
+             # Convert back to linear scale for display (assuming OR/RR)
+             pooled_es = np.exp(log_eff)
+             pooled_lower = np.exp(log_ci_low)
+             pooled_upper = np.exp(log_ci_upp)
+             
+             # Interpretation
+             # Significant if CI does not include 1 (i.e. log CI does not include 0)
+             is_significant = (log_ci_low > 0) or (log_ci_upp < 0)
+             
+             interpretation = "Statistically Significant" if is_significant else "Not Statistically Significant"
+             
+             # Direction
+             if is_significant:
+                 direction = "Increased Risk/Odds" if log_eff > 0 else "Decreased Risk/Odds"
+                 interpretation += f" ({direction})"
+             
+             headline = {
+                 "pooled_es": round(pooled_es, 2),
+                 "ci_low": round(pooled_lower, 2),
+                 "ci_upp": round(pooled_upper, 2),
+                 "interpretation": interpretation
+             }
+
+        except Exception as e:
+             print(f"Error parsing summary stats: {e}")
+             headline = None
+        
+        # Plot
+        plt.figure(figsize=(10, 6))
+
+        
+        fp_df = df_clean.copy()
+        fp_df = fp_df.rename(columns={'Study': 'group', 'log_ES': 'est'})
+        fp_df['lb'] = fp_df['est'] - 1.96 * fp_df['log_SE']
+        fp_df['ub'] = fp_df['est'] + 1.96 * fp_df['log_SE']
+        fp_df['label'] = fp_df['group']
+        
+        forestplot.forestplot(
+            fp_df,
+            estimate="est",
+            ll="lb",
+            hl="ub",
+            varlabel="label",
+            xlabel="Log Effect Size (95% CI)",
+            title=f"Forest Plot: {disease} vs {exposure}"
+        )
+        
+        plot_path = os.path.join("static", "forest_plot.png")
+        if not os.path.exists("static"):
+            os.makedirs("static")
+        plt.savefig(plot_path, bbox_inches='tight')
+        plt.close() # Close plot to free memory
+        
+        # Convert df to records for frontend
+        studies_data = df_clean[['Study', 'Effect Size', 'Lower CI', 'Upper CI', 'Population', 'Reference', 'Authors']].to_dict(orient='records')
+        
+        return {
+            "success": True,
+            "studies": studies_data,
+            "summary_html": summary,
+            "headline": headline,
+            "plot_url": "static/forest_plot.png?t=" + str(np.random.randint(0,10000)) # cache busting
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": f"Meta-analysis failed: {str(e)}"}
+
+# Keep main for CLI usage but renamed/refactored if needed, or just let the new function handle it.
+# We will modify the existing main to use this new function if we wanted to keep CLI, 
+# but for now I'm just injecting the function to be used by Flask.
+
 
 # Load environment variables
 load_dotenv('mykey.env')
@@ -262,9 +394,7 @@ def main():
     # Actually, simpler path:
     # Use a basic inverse variance weighting if library usage is complex to guess without docs.
     # But I see `statsmodels.stats.meta_analysis` docs usually.
-    # Let's try `from statsmodels.stats.meta_analysis import CombineResults`
-    # res = CombineResults(effect_size, variance, method='random')
-    # If that fails at runtime, I'll need to fix.
+    # Let's try `from statsmodels.stats.meta_analysis import combine_effects`
     
     try:
         # Assuming data is ready
@@ -279,7 +409,7 @@ def main():
         # `from statsmodels.stats.meta_analysis import effect_size_smd, combine_effects`
         # `res = combine_effects(effect, var, method_re='dl', use_t=True)`
         
-        res = sm.stats.meta_analysis.combine_effects(df_clean['log_ES'], df_clean['var'], method_re='dl')
+        res = combine_effects(df_clean['log_ES'], df_clean['var'], method_re='dl')
         print("\nMeta-Analysis Results:")
         print(res.summary_frame())
         
@@ -310,7 +440,7 @@ def main():
         # I MUST use forestplot library.
         # Usage: forestplot.forest_plot(df, estimate="est", lower="lb", upper="ub", varlabel="label")
         
-        forestplot.forest_plot(
+        forestplot.forestplot(
             fp_df,
             estimate="est",
             ll="lb",
