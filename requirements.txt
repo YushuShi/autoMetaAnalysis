@@ -1,0 +1,6 @@
+biopython
+pandas
+statsmodels
+matplotlib
+forestplot
+python-dotenv

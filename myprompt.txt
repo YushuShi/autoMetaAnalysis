@@ -1,0 +1,1 @@
+okay help me create with API and antigravity a IDE that Create a Python script that 1) searches effect sizes for a specific disease and exposure in peer-reviewed literature 2) pulls those effect sizes 3) generates a table 1: coffee col2: effect size col 3: population col4: authors col5: reference 4) generates a forest plot and 5) generates a random effects meta analysis
