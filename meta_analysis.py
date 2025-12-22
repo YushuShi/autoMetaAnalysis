@@ -98,16 +98,43 @@ def extract_data(articles):
                 except ValueError:
                     continue
                 
-                # Look for CI nearby
+                # Look for CI nearby - Extended window
                 start_pos = es_match.end()
-                # Check next 50 chars for CI
-                snippet = abstract[start_pos:start_pos+50] 
-                ci_match = ci_pattern.search(snippet)
+                snippet = abstract[start_pos:start_pos+150] # Extended to 150
                 
-                # If not found, try to search the whole abstract but finding the 'closest' one is hard.
-                # Let's try searching from the match position forward
+                # Improved CI regex: allows for square brackets, various separators, optional '95% CI' prefix nearby
+                # (?: ... ) is non-capturing group
+                # We interpret CI as two numbers separated by -, to, or ,
+                # We assume they appear within parens or brackets OR just after "95% CI"
+                # This is tricky regex.
+                # Let's try matching "number [sep] number" that are close to "CI" or in brackets
+                
+                # Regex for "1.23-4.56" or "1.23, 4.56" or "1.23 to 4.56"
+                # enclosed in parens/brackets OR preceded by CI
+                
+                # Case 1: (...) or [...] containing two numbers
+                ci_pattern_1 = re.compile(r'[(\[]\s*(?:95\s*%\s*C\.?I\.?[:\s]*)?(\d+\.\d+)\s*[-–,;to]+\s*(\d+\.\d+)\s*[)\]]', re.IGNORECASE)
+                
+                # Case 2: "95% CI 1.23-4.56" (no parens around numbers)
+                ci_pattern_2 = re.compile(r'95\s*%\s*C\.?I\.?[:\s]*(\d+\.\d+)\s*[-–,;to]+\s*(\d+\.\d+)', re.IGNORECASE)
+                
+                ci_match = ci_pattern_1.search(snippet)
                 if not ci_match:
-                     ci_match = ci_pattern.search(abstract, pos=start_pos)
+                    ci_match = ci_pattern_2.search(snippet)
+                    
+                if not ci_match:
+                     # Fallback: search wide in snippet for just two numbers if "CI" is mentioned
+                     if "CI" in snippet or "confidence interval" in snippet.lower():
+                         # Just find two floats
+                         nums = re.findall(r'(\d+\.\d+)', snippet)
+                         if len(nums) >= 2:
+                             # Assume first two are the CI if they bracket the ES? 
+                             # Or just take them.
+                             try:
+                                 v1, v2 = float(nums[0]), float(nums[1])
+                                 ci_match = type('Match', (object,), {'group': lambda s, i: v1 if i==1 else v2})()
+                             except:
+                                 pass
 
                 if ci_match:
                      try:
@@ -115,9 +142,13 @@ def extract_data(articles):
                         upper_ci = float(ci_match.group(2))
                      except ValueError:
                         pass
-            
+                else:
+                    # Debug print for missed CI
+                    if len(data) < 5:
+                       print(f"DEBUG: Found ES {effect_size} in '{title[:20]}...' but NO CI in snippet: '{snippet}'")
+
             if effect_size:
-                # Basic validation: CI should bracket the ES usually
+                # Basic validation:
                 if lower_ci and upper_ci:
                     if lower_ci > upper_ci:
                         lower_ci, upper_ci = upper_ci, lower_ci
@@ -128,7 +159,7 @@ def extract_data(articles):
                     "Effect Type": es_type,
                     "Lower CI": lower_ci,
                     "Upper CI": upper_ci,
-                    "Population": "General", # Simplification
+                    "Population": "General",
                     "Authors": authors,
                     "Reference": title
                 }
@@ -139,8 +170,7 @@ def extract_data(articles):
                 elif "patients" in abstract.lower(): row["Population"] = "Patients"
 
                 data.append(row)
-                if len(data) <= 1:
-                     print(f"DEBUG: Found ES: {effect_size} CI: {lower_ci}-{upper_ci} in {title[:30]}...")
+
             
         except Exception as e:
             continue
@@ -195,6 +225,14 @@ def main():
     df_clean.to_csv("meta_analysis_results.csv", index=False)
     print("\nData saved to 'meta_analysis_results.csv'")
 
+import numpy as np
+
+# ... (imports)
+
+# ... (inside extract_data - no change needed there)
+
+# ... (inside main)
+
     # Random Effects Meta-Analysis
     print("\nPerforming Random Effects Meta-Analysis...")
     # statsmodels CombineResults
@@ -205,17 +243,18 @@ def main():
     # To keep it "Tool-like" and robust, let's take log if it's OR/RR/HR and > 0
     
     # Simple logic: if Type is OR/RR/HR, log transform
-    df_clean['log_ES'] = df_clean.apply(lambda x: pd.np.log(x['Effect Size']) if x['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO'] and x['Effect Size'] > 0 else x['Effect Size'], axis=1)
+    df_clean['log_ES'] = df_clean.apply(lambda x: np.log(x['Effect Size']) if x['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO'] and x['Effect Size'] > 0 else x['Effect Size'], axis=1)
     # SE also needs to be on log scale? Yes, SE(logOR) ~= (log(Upper) - log(Lower)) / 3.92
     # So let's just recalculate log SE
     
     def calc_log_se(row):
         if row['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO'] and row['Lower CI'] > 0 and row['Upper CI'] > 0:
-             return (pd.np.log(row['Upper CI']) - pd.np.log(row['Lower CI'])) / 3.92
+             return (np.log(row['Upper CI']) - np.log(row['Lower CI'])) / 3.92
         return row['SE'] # Use raw SE if not ratio
 
     df_clean['log_SE'] = df_clean.apply(calc_log_se, axis=1)
     df_clean['var'] = df_clean['log_SE'] ** 2
+
     
     # Use statsmodels
     # CombineResults(eff, var)
