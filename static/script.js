@@ -47,9 +47,10 @@ document.getElementById('analyze-btn').addEventListener('click', async () => {
                     <td><input type="checkbox" class="study-checkbox" data-index="${index}" checked></td>
                     <td>${index + 1}</td>
                     <td>${study.Study}</td>
-                    <td>${study['Effect Size']}</td>
-                    <td>${study['Lower CI']} - ${study['Upper CI']}</td>
+                    <td>${study['Effect Type'] ? study['Effect Type'] + ': ' : ''}${study['Effect Size']}</td>
+                    <td>${study['Lower CI']}, ${study['Upper CI']}</td>
                     <td>${study.Population}</td>
+                    <td>${study['Sample Size'] || 'N/A'}</td>
                     <td style="font-size: 0.85em; opacity: 0.8;">${study.Reference}</td>
                     <td>${study.Journal || '-'} (${study.Year || '-'})</td>
                     <td><a href="${study.Link}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">Link</a></td>
@@ -146,7 +147,7 @@ function updateResultsUI(data) {
         const hl = document.getElementById('headline-result');
         hl.classList.remove('hidden');
         document.getElementById('pooled-es').textContent = data.headline.pooled_es;
-        document.getElementById('pooled-ci').textContent = `${data.headline.ci_low} - ${data.headline.ci_upp}`;
+        document.getElementById('pooled-ci').textContent = `${data.headline.ci_low}, ${data.headline.ci_upp}`;
 
         const interpEl = document.getElementById('interpretation');
         interpEl.textContent = data.headline.interpretation;

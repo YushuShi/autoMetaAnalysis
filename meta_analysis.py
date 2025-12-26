@@ -18,7 +18,7 @@ def get_analysis_data(disease, exposure, outcome="Incidence", exclude_meta=False
     Main entry point for web app. Returns a dict with results.
     """
     print(f"Analyzing: {disease} vs {exposure} (Outcome: {outcome}, Exclude Meta/Reviews: {exclude_meta})")
-    ids = search_pubmed(disease, exposure, outcome=outcome, exclude_meta=exclude_meta)
+    ids = search_pubmed(disease, exposure, outcome=outcome, exclude_meta=exclude_meta, max_results=100)
     articles = fetch_details(ids)
     
     df = extract_data(articles)
@@ -38,6 +38,9 @@ def perform_meta_analysis(df_clean, disease, exposure):
     """
     Performs random-effects meta-analysis on the provided DataFrame.
     """
+    # Sort by Effect Size for consistent display (Table and Plot)
+    df_clean = df_clean.sort_values(by='Effect Size', ascending=True)
+
     # Meta-Analysis
     # Log transformation logic
     df_clean['log_ES'] = df_clean.apply(lambda x: np.log(x['Effect Size']) if x['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO'] and x['Effect Size'] > 0 else x['Effect Size'], axis=1)
@@ -56,30 +59,42 @@ def perform_meta_analysis(df_clean, disease, exposure):
     
     try:
         if len(analysis_df) < 2:
-            # Handle single study case manually
+            # Handling Single Study: Use original raw values to match exactly
+            row = analysis_df.iloc[0]
+            pooled_es = row['Effect Size']
+            pooled_lower = row['Lower CI']
+            pooled_upper = row['Upper CI']
+            
+            # Create a dummy summary_df just to satisfy variable existence for summary_html (even if unused)
             summary_df = pd.DataFrame({
-                'Effect': list(analysis_df['log_ES']),
-                '95% CI lower': list(analysis_df['log_ES'] - 1.96 * analysis_df['log_SE']),
-                '95% CI upper': list(analysis_df['log_ES'] + 1.96 * analysis_df['log_SE'])
-            }, index=analysis_df.index)
+                'Effect': [pooled_es],
+                '95% CI lower': [pooled_lower],
+                '95% CI upper': [pooled_upper]
+            }, index=['Pooled Result (Single Study)'])
+            summary = summary_df.to_html(classes='table table-striped', header=True)
+
+            # Interpretation logic
+            is_significant = (pooled_lower > 1) or (pooled_upper < 1) 
+            # Note: The above significance check assumes Ratio (null=1). 
+            # If not ratio (e.g. 0), it should be diff > 0. 
+            # Use confidence interval crossing null hypothesis check based on CI signs?
+            # Actually, standard way: if lower and upper are on same side of Null.
+            # Ratios are always > 0.
             
-            # Add a dummy row for "Pooled" which is just the same study
-            summary_df.loc['Pooled Result (Single Study)'] = summary_df.iloc[0]
-            summary_df = summary_df.round(4)
+            # Let's improve significance check based on type
+            if row['Effect Type'] in ['OR', 'RR', 'HR', 'ODDS RATIO', 'RISK RATIO']:
+                 is_significant = (pooled_lower > 1) or (pooled_upper < 1)
+                 log_eff = np.log(pooled_es) # For direction check
+            else:
+                 # Linear scale, null is 0
+                 is_significant = (pooled_lower > 0 and pooled_upper > 0) or (pooled_lower < 0 and pooled_upper < 0)
+                 log_eff = pooled_es # Just for direction
             
-            # Simple interpretation for single study
-            log_eff = summary_df.loc['Pooled Result (Single Study)', 'Effect']
-            log_ci_low = summary_df.loc['Pooled Result (Single Study)', '95% CI lower']
-            log_ci_upp = summary_df.loc['Pooled Result (Single Study)', '95% CI upper']
-            
-            pooled_es = np.exp(log_eff)
-            pooled_lower = np.exp(log_ci_low)
-            pooled_upper = np.exp(log_ci_upp)
-             
-            is_significant = (log_ci_low > 0) or (log_ci_upp < 0)
             interpretation = "Statistically Significant" if is_significant else "Not Statistically Significant"
             if is_significant:
                  direction = "Increased Risk/Odds" if log_eff > 0 else "Decreased Risk/Odds"
+                 # Correction: if ratio, log_eff > 0 means ES > 1. Correct.
+                 # If linear, log_eff > 0 means ES > 0. Correct.
                  interpretation += f" ({direction})"
             
             headline = {
@@ -88,8 +103,6 @@ def perform_meta_analysis(df_clean, disease, exposure):
                  "ci_upp": float(round(pooled_upper, 2)),
                  "interpretation": interpretation
             }
-            
-            summary = summary_df.to_html(classes='table table-striped', header=True)
             
         else:
             res = combine_effects(analysis_df['log_ES'], analysis_df['var'], method_re='dl')
@@ -193,7 +206,7 @@ def perform_meta_analysis(df_clean, disease, exposure):
         plt.close() 
         
         # Convert df to records
-        studies_data = df_clean[['Study', 'Effect Size', 'Lower CI', 'Upper CI', 'Population', 'Reference', 'Authors', 'Journal', 'Year', 'Link', 'Effect Type', 'SE']].to_dict(orient='records')
+        studies_data = df_clean[['Study', 'Effect Size', 'Lower CI', 'Upper CI', 'Population', 'Reference', 'Authors', 'Journal', 'Year', 'Link', 'Effect Type', 'SE', 'Sample Size']].to_dict(orient='records')
         
         return {
             "success": True,
@@ -225,7 +238,9 @@ def search_pubmed(disease, exposure, outcome="Incidence", exclude_meta=False, ma
     """
     # Define outcome terms
     if outcome == "Survival":
-        outcome_terms = '(survival OR mortality OR prognosis OR "hazard ratio" OR "death")'
+        outcome_terms = '(survival OR mortality OR prognosis OR "overall survival" OR "OS" OR "hazard ratio" OR "death")'
+    elif outcome == "Disease-Free Survival":
+        outcome_terms = '("disease-free survival" OR "DFS" OR "recurrence-free survival" OR "RFS" OR "relapse-free survival")'
     else:
         # Default to Incidence
         outcome_terms = '(incidence OR risk OR development OR "associated with" OR "odds ratio")'
@@ -310,7 +325,11 @@ def extract_data(articles):
             upper_ci = None
             
             if es_match:
-                es_type = es_match.group(1).upper()
+                raw_type = es_match.group(1).upper()
+                if "ODDS" in raw_type: es_type = "OR"
+                elif "RISK" in raw_type or "RR" in raw_type: es_type = "RR"
+                elif "HAZARD" in raw_type or "HR" in raw_type: es_type = "HR"
+                else: es_type = raw_type
                 try:
                     effect_size = float(es_match.group(2))
                 except ValueError:
@@ -385,6 +404,12 @@ def extract_data(articles):
                 if lower_ci and upper_ci:
                     if lower_ci > upper_ci:
                         lower_ci, upper_ci = upper_ci, lower_ci
+                    
+                    # Validate that Effect Size is within the CI (allowing small epsilon for rounding)
+                    # If ES is outside CI, it's likely a parsing error of unrelated numbers
+                    if not (lower_ci <= effect_size <= upper_ci):
+                         # print(f"DEBUG: Discarding {title[:30]}... ES {effect_size} not in CI {lower_ci}-{upper_ci}")
+                         continue
                 
                 # Format Study with Year
                 short_author = f"{authors.split(',')[0]} et al." if ',' in authors else authors
@@ -394,10 +419,34 @@ def extract_data(articles):
                 pmid = medline.get('PMID', '')
                 pmid_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "#"
                 
+                # Attempt to extract Sample Size
+                sample_size = "N/A"
+                # Patterns to look for sample size:
+                # 1. "n = 123" or "N = 123"
+                # 2. "123 patients" or "123 participants" or "123 cases"
+                # 3. "total of 123"
+                
+                # We prioritize specific patterns
+                n_match = re.search(r'\b[nN]\s*=\s*(\d+(?:,\d{3})*)', abstract)
+                if n_match:
+                    sample_size = n_match.group(1)
+                else:
+                    # Look for larger numbers followed by participants/patients
+                    # Avoid years like 2020
+                    part_match = re.search(r'\b(\d+(?:,\d{3})*)\s+(participants|patients|subjects|cases|women|men|individuals)', abstract, re.IGNORECASE)
+                    if part_match:
+                        # Simple check to avoid years (e.g. 1990-2010 participants... wait, 2010 participants is valid)
+                        # Let's assume if it is > 2025 or < 1900 it's likely a number, OR if formatted with comma
+                        val_str = part_match.group(1).replace(',', '')
+                        val = int(val_str)
+                        if val > 10 and (val < 1900 or val > 2030 or ',' in part_match.group(1)):
+                             sample_size = part_match.group(1)
+                
                 row = {
                     "Study": study_label,
                     "Effect Size": effect_size,
                     "Effect Type": es_type,
+                    "Sample Size": sample_size,
                     "Lower CI": lower_ci,
                     "Upper CI": upper_ci,
                     "Population": "General",
