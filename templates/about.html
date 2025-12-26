@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Meta-Gravity</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .about-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        h2 {
+            font-family: 'Unbounded', sans-serif;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .disclaimer-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+
+        .disclaimer-title {
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .back-link:hover {
+            transform: translateX(-5px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-globes">
+        <div class="globe globe-1"></div>
+        <div class="globe globe-2"></div>
+        <div class="globe globe-3"></div>
+    </div>
+
+    <div class="about-container">
+        <a href="/" class="back-link">← Back to Tool</a>
+
+        <h1>About Meta-Gravity</h1>
+
+        <div class="disclaimer-box">
+            <div class="disclaimer-title">
+                ⚠️ CAUTION: AI-Generated Results
+            </div>
+            <p>
+                <strong>This tool uses automated algorithms to extract data from scientific abstracts.</strong>
+                While we strive for accuracy, the extraction process may occasionally misinterpret extraction values,
+                sample sizes, or study designs.
+            </p>
+            <p style="margin-bottom: 0;">
+                <strong>Always verify the extracted data against the original publication before making any clinical or
+                    research decisions.</strong>
+                This tool is intended for exploratory and educational purposes only.
+            </p>
+        </div>
+
+        <h2>How It Works</h2>
+        <p>
+            Meta-Gravity automates the initial steps of a systematic review and meta-analysis. When you enter a topic
+            (e.g., "Coffee" and "Breast Cancer"), the tool:
+        </p>
+        <ol>
+            <li><strong>Searches PubMed</strong> for relevant clinical trials and observational studies.</li>
+            <li><strong>Finds Key Studies</strong> on PubMed using NLP to extract effect sizes (odds ratios, hazard
+                ratios) and confidence intervals.</li>
+            <li><strong>Synthesizes Evidence</strong> by pooling the results using a Random-Effects Meta-Analysis model.
+            </li>
+            <li><strong>Visualizes Results</strong> in a Forest Plot to show the overall trend.</li>
+        </ol>
+
+        <h2>Understanding Meta-Analysis</h2>
+        <p>
+            A <strong>Meta-Analysis</strong> is a statistical technique that combines the results of multiple scientific
+            studies. By pooling data from various sources, we can get a more precise estimate of an effect than any
+            single study can provide.
+        </p>
+        <p>
+            <strong>Key Metrics:</strong>
+        <ul>
+            <li><strong>Pooled Effect Size:</strong> The weighted average of all study results (weighted according to
+                sample size). A value of 1.0 usually means "no effect". Values <1 indicate a protective effect, while
+                    values>1 indicate an increased risk.</li>
+            <li><strong>Confidence Interval (CI):</strong> The range in which the true effect likely lies. If the 95% CI
+                includes 1.0, the result is typically not statistically significant.</li>
+            <li><strong>Forest Plot:</strong> A graphical display where each study is represented by a box (effect size)
+                and a line (confidence interval). The diamond at the bottom represents the combined result.</li>
+        </ul>
+        </p>
+    </div>
+</body>
+
+</html>
