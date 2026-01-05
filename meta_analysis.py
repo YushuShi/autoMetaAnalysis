@@ -11,6 +11,7 @@ import statsmodels.api as sm
 from statsmodels.stats.meta_analysis import CombineResults, combine_effects
 import forestplot
 
+
 # ... (rest of imports)
 
 def get_analysis_data(disease, exposure, outcome="Incidence", exclude_meta=False):
@@ -21,7 +22,7 @@ def get_analysis_data(disease, exposure, outcome="Incidence", exclude_meta=False
     ids = search_pubmed(disease, exposure, outcome=outcome, exclude_meta=exclude_meta, max_results=100)
     articles = fetch_details(ids)
     
-    df = extract_data(articles)
+    df = extract_data(articles, exclude_meta=exclude_meta)
     
     if df.empty:
         return {"error": "No suitable data found extraction effect sizes."}
@@ -283,7 +284,7 @@ def fetch_details(id_list):
         print(f"Error fetching details: {e}")
         return []
 
-def extract_data(articles):
+def extract_data(articles, exclude_meta=False):
     """
     Extract relevant data from the articles.
     """
@@ -295,15 +296,30 @@ def extract_data(articles):
     # CI Pattern: looks for (95% CI: 1.1-2.2) or (1.1, 2.2) or similar variants
     ci_pattern = re.compile(r'\(\s*(?:95\s*%\s*C\.?I\.?)?\s*[:=]?\s*(\d+\.\d+)\s*[-–,to]\s*(\d+\.\d+)\s*\)', re.IGNORECASE)
     
-    last_abstract_debug = ""
-
     for article in articles:
         try:
             medline = article['MedlineCitation']
             article_data = medline['Article']
             
-            # Title
+            # Title Check
             title = article_data.get('ArticleTitle', 'No Title')
+            # Handle if title is not a simple string (sometimes Entrez returns List or StringElement)
+            if isinstance(title, list):
+                title = " ".join([str(t) for t in title])
+            
+            title = str(title) # Ensure string
+            
+            if exclude_meta:
+                # Check Publication Types
+                pub_types = [pt.strip().lower() for pt in article_data.get('PublicationTypeList', [])]
+                if any(pt in ['meta-analysis', 'systematic review', 'review'] for pt in pub_types):
+                     continue
+                
+                # Double Check Title
+                title_lower = title.lower()
+                # Check for meta-analysis variations using regex for flexibility (e.g. Meta-analysis, Meta analysis, Metaanalysis)
+                if re.search(r'meta[\s-]?analysis', title_lower) or "systematic review" in title_lower or "pooled analysis" in title_lower:
+                     continue
             
             # Authors
             author_list = article_data.get('AuthorList', [])

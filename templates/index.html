@@ -12,7 +12,7 @@
 <body>
 
     <header style="position: relative;">
-        <div class="logo">META-GRAVITY</div>
+        <div class="logo">META-INSIGHT</div>
         <p>Advanced Meta-Analysis & Evidence Synthesis</p>
         <a href="/about"
             style="position: absolute; top: 2rem; right: 2rem; background-color: var(--primary); color: white; padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center;">
@@ -35,7 +35,11 @@
             <div class="search-box">
                 <div class="input-group">
                     <label for="exposure">Exposure</label>
-                    <input type="text" id="exposure" placeholder="e.g. Coffee" value="Coffee">
+                    <div class="custom-dropdown" id="exposure-dropdown">
+                        <input type="text" id="exposure" placeholder="Search exposure..." value="Coffee"
+                            autocomplete="off">
+                        <div class="dropdown-options" id="exposure-options"></div>
+                    </div>
                 </div>
                 <div class="input-group">
                     <label for="outcome">Outcome</label>
@@ -117,12 +121,14 @@
                                 <th>Include</th>
                                 <th>#</th>
                                 <th>Study</th>
-                                <th>Effect Size (Raw)</th>
+                                <th class="sortable" id="th-es" onclick="handleSort('Effect Size')">Effect Size (Raw)
+                                    <span class="sort-icon"></span></th>
                                 <th>95% CI</th>
                                 <th>Population</th>
                                 <th>Sample Size</th>
                                 <th>Reference</th>
-                                <th>Journal / Year</th>
+                                <th class="sortable" id="th-year" onclick="handleSort('Year')">Journal / Year <span
+                                        class="sort-icon"></span></th>
                                 <th>Link</th>
                             </tr>
                         </thead>

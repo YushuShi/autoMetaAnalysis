@@ -274,3 +274,69 @@ table.dataframe {
     font-weight: 600;
     cursor: pointer;
 }
+
+/* Custom Dropdown Styles */
+.custom-dropdown {
+    position: relative;
+    width: 250px;
+}
+
+.custom-dropdown input {
+    width: 100%;
+}
+
+.dropdown-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 0 0 6px 6px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-options div {
+    padding: 0.8rem 1.2rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.dropdown-options div:hover {
+    background-color: rgba(160, 82, 45, 0.1);
+    color: var(--primary);
+}
+
+/* Sortable Headers */
+th.sortable {
+    cursor: pointer;
+    position: relative;
+    padding-right: 1.5rem;
+    /* Space for icon */
+}
+
+th.sortable:hover {
+    background-color: rgba(160, 82, 45, 0.25);
+}
+
+.sort-icon::after {
+    content: '⇅';
+    position: absolute;
+    right: 0.5rem;
+    opacity: 0.3;
+}
+
+th.sort-asc .sort-icon::after {
+    content: '▲';
+    opacity: 1;
+}
+
+th.sort-desc .sort-icon::after {
+    content: '▼';
+    opacity: 1;
+}
