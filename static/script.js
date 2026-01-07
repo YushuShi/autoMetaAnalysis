@@ -2,6 +2,7 @@ let currentStudies = [];
 
 // Exposure Dropdown Logic
 document.addEventListener('DOMContentLoaded', async () => {
+    updateLastUpdated();
     const exposureInput = document.getElementById('exposure');
     const exposureOptions = document.getElementById('exposure-options');
     let exposures = [];
@@ -259,6 +260,20 @@ function updateSortIcons() {
     }
 }
 
+function updateLastUpdated(timestamp = new Date()) {
+    const lastUpdatedEl = document.getElementById('last-updated');
+    if (!lastUpdatedEl) {
+        return;
+    }
+
+    lastUpdatedEl.textContent = timestamp.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 
 function updateResultsUI(data) {
     // Update Plot
@@ -286,4 +301,6 @@ function updateResultsUI(data) {
             interpEl.style.color = "#238636"; // Green for protective (assuming disease risk)
         }
     }
+
+    updateLastUpdated();
 }

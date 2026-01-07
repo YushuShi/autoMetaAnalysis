@@ -44,6 +44,12 @@ header {
     margin-bottom: 0.5rem;
 }
 
+.last-updated {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: #555;
+}
+
 main {
     max-width: 1400px;
     margin: 0 auto;
