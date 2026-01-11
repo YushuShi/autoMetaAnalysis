@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from Bio import Entrez
 from dotenv import load_dotenv
 import statsmodels.api as sm
-from statsmodels.stats.meta_analysis import CombineResults, combine_effects
+from scipy import stats
 import forestplot
 
 
@@ -57,6 +57,41 @@ def perform_meta_analysis(df_clean, disease, exposure):
     # Set index to Study for better summary labels
     # Set index to Study for better summary labels
     analysis_df = df_clean.set_index('Study')
+
+    def hksj_random_effects(log_es, var, alpha=0.05):
+        k = len(log_es)
+        if k < 2:
+            raise ValueError("HKSJ requires at least two studies.")
+
+        w_fe = 1.0 / var
+        theta_fe = np.sum(w_fe * log_es) / np.sum(w_fe)
+        df = k - 1
+
+        # Sidik-Jonkman tau^2 (method of moments)
+        tau2 = max(
+            0.0,
+            (np.sum((log_es - theta_fe) ** 2) / df) - np.mean(var)
+        )
+
+        w_re = 1.0 / (var + tau2)
+        theta_re = np.sum(w_re * log_es) / np.sum(w_re)
+
+        q_re = np.sum(w_re * (log_es - theta_re) ** 2)
+        s2 = q_re / df if df > 0 else 0.0
+        var_re = s2 / np.sum(w_re) if np.sum(w_re) > 0 else np.nan
+        se_re = np.sqrt(var_re)
+
+        t_crit = stats.t.ppf(1 - alpha / 2, df) if df > 0 else np.nan
+        ci_low = theta_re - t_crit * se_re
+        ci_upp = theta_re + t_crit * se_re
+
+        return {
+            "effect": theta_re,
+            "se": se_re,
+            "ci_low": ci_low,
+            "ci_upp": ci_upp,
+            "tau2": tau2,
+        }
     
     try:
         if len(analysis_df) < 2:
@@ -106,70 +141,50 @@ def perform_meta_analysis(df_clean, disease, exposure):
             }
             
         else:
-            res = combine_effects(analysis_df['log_ES'], analysis_df['var'], method_re='dl')
-            summary_df = res.summary_frame()
-            
-            # Explicitly update the index
-            n_studies = len(analysis_df)
-            new_index = list(analysis_df.index) + list(summary_df.index[n_studies:])
-            summary_df.index = new_index
-            
-            # Cleanup table columns
-            cols_to_drop = ['w_fe', 'w_re']
-            summary_df = summary_df.drop(columns=cols_to_drop, errors='ignore')
-            
-            # Rename columns
-            summary_df = summary_df.rename(columns={
-                'eff': 'Effect',
-                'sd_eff': 'SD Effect',
-                'ci_low': '95% CI lower',
-                'ci_upp': '95% CI upper'
-            })
-            
-            # Rename rows
-            summary_df = summary_df.rename(index={
-                'random effect wls': 'Random-effects meta-analysis (WLS)',
-                'fixed effect wls': 'Fixed-effect meta-analysis (WLS)'
-            })
+            hksj = hksj_random_effects(analysis_df['log_ES'].values, analysis_df['var'].values)
+
+            summary_df = pd.DataFrame({
+                'Effect': analysis_df['log_ES'],
+                'SD Effect': np.sqrt(analysis_df['var']),
+                '95% CI lower': analysis_df['log_ES'] - 1.96 * np.sqrt(analysis_df['var']),
+                '95% CI upper': analysis_df['log_ES'] + 1.96 * np.sqrt(analysis_df['var'])
+            }, index=analysis_df.index)
+
+            summary_df.loc['Random-effects meta-analysis (HKSJ)'] = {
+                'Effect': hksj['effect'],
+                'SD Effect': hksj['se'],
+                '95% CI lower': hksj['ci_low'],
+                '95% CI upper': hksj['ci_upp']
+            }
 
             summary_df = summary_df.round(4)
-            
-            # Display DF
+
             display_df = summary_df.copy()
-            rows_to_drop = ['Fixed-effect meta-analysis (WLS)', 'Random-effects meta-analysis (WLS)']
-            rows_to_drop.extend(['fixed effect wls', 'random effect wls', 'fixed effect', 'random effect'])
+            rows_to_drop = ['Random-effects meta-analysis (HKSJ)']
             display_df = display_df.drop(index=[r for r in rows_to_drop if r in display_df.index], errors='ignore')
-            
+
             summary = display_df.to_html(classes='table table-striped', header=True)
-            
-            # Extract Headline
+
+            # Extract Headline from HKSJ row
             try:
-                # Handle potential row naming variations
-                if 'Random-effects meta-analysis (WLS)' in summary_df.index:
-                    re_row = summary_df.loc['Random-effects meta-analysis (WLS)']
-                elif 'random effect wls' in summary_df.index:
-                    re_row = summary_df.loc['random effect wls']
-                elif 'random effect' in summary_df.index:
-                    re_row = summary_df.loc['random effect']
-                else:
-                    re_row = summary_df.iloc[-1]
-            
+                re_row = summary_df.loc['Random-effects meta-analysis (HKSJ)']
+
                 log_eff = re_row['Effect']
                 log_ci_low = re_row['95% CI lower']
                 log_ci_upp = re_row['95% CI upper']
-                
+
                 pooled_es = np.exp(log_eff)
                 pooled_lower = np.exp(log_ci_low)
                 pooled_upper = np.exp(log_ci_upp)
-                
+
                 is_significant = (log_ci_low > 0) or (log_ci_upp < 0)
-                
+
                 interpretation = "Statistically Significant" if is_significant else "Not Statistically Significant"
-                
+
                 if is_significant:
                     direction = "Increased Risk/Odds" if log_eff > 0 else "Decreased Risk/Odds"
                     interpretation += f" ({direction})"
-                
+
                 headline = {
                     "pooled_es": float(round(pooled_es, 2)),
                     "ci_low": float(round(pooled_lower, 2)),

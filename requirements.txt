@@ -1,6 +1,7 @@
 biopython
 pandas
 statsmodels
+scipy
 matplotlib
 forestplot
 python-dotenv
