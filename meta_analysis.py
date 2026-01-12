@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from Bio import Entrez
 from dotenv import load_dotenv
 import statsmodels.api as sm
+from statsmodels.stats.meta_analysis import combine_effects
 from scipy import stats
 import forestplot
 
@@ -516,8 +517,8 @@ def calculate_se(row):
 
 def main():
     print("--- Meta-Analysis Tool ---")
-    disease = input("Enter Disease (e.g., 'Breast Cancer'): ") or "Breast Cancer"
-    exposure = input("Enter Exposure (e.g., 'Coffee'): ") or "Coffee"
+    disease = input("Enter Disease (e.g., 'Merkel cell carcinoma'): ") or "Merkel cell carcinoma"
+    exposure = input("Enter Exposure (e.g., 'Smoking'): ") or "Smoking"
     
     print(f"\nFetching data for {disease} and {exposure}...")
     ids = search_pubmed(disease, exposure)

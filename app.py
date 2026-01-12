@@ -28,8 +28,8 @@ def about():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.json
-    disease = data.get('disease', 'Breast Cancer')
-    exposure = data.get('exposure', 'Coffee')
+    disease = data.get('disease', 'Mesothelioma')
+    exposure = data.get('exposure', 'Smoking')
     outcome = data.get('outcome', 'Incidence')
     exclude_meta = data.get('exclude_meta', False)
     

@@ -102,6 +102,8 @@ document.getElementById('analyze-btn').addEventListener('click', async () => {
             errorMsg.classList.remove('hidden');
         } else {
             currentStudies = data.studies; // Store for re-analysis
+            sortStudiesByYearAndSampleSize(currentStudies);
+            currentSort = { field: 'Year', direction: 'desc' };
             updateResultsUI(data);
 
             // Initial Render
@@ -233,6 +235,9 @@ window.handleSort = (field) => {
             // Handle "Unknown" or strings
             valA = parseInt(a['Year']) || 0;
             valB = parseInt(b['Year']) || 0;
+        } else if (field === 'Sample Size') {
+            valA = parseInt(String(a['Sample Size'] || '').replace(/,/g, ''), 10) || 0;
+            valB = parseInt(String(b['Sample Size'] || '').replace(/,/g, ''), 10) || 0;
         }
 
         if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
@@ -253,11 +258,26 @@ function updateSortIcons() {
     let id = '';
     if (currentSort.field === 'Effect Size') id = 'th-es';
     if (currentSort.field === 'Year') id = 'th-year';
+    if (currentSort.field === 'Sample Size') id = 'th-sample';
 
     if (id) {
         const th = document.getElementById(id);
         if (th) th.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
     }
+}
+
+function sortStudiesByYearAndSampleSize(studies) {
+    studies.sort((a, b) => {
+        const yearA = parseInt(a['Year']) || 0;
+        const yearB = parseInt(b['Year']) || 0;
+        if (yearA !== yearB) {
+            return yearB - yearA;
+        }
+
+        const sizeA = parseInt(String(a['Sample Size'] || '').replace(/,/g, ''), 10) || 0;
+        const sizeB = parseInt(String(b['Sample Size'] || '').replace(/,/g, ''), 10) || 0;
+        return sizeB - sizeA;
+    });
 }
 
 function updateLastUpdated(timestamp = new Date()) {
